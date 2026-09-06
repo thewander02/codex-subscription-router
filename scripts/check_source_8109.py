@@ -22,7 +22,7 @@ def main():
         patch_desktop_profile(root, root / 'Computer Use.app')
         patch_renderer_8109(root, '0' * 64)
         for file in (root / 'webview/assets').glob('*.js'):
-            if 'CodexMux' in file.read_text():
+            if file.name.startswith(('app-initial-', 'app-primary-', 'profile-', 'plugins-settings-', 'local-conversation-thread-')):
                 subprocess.run(['node', '--check', str(file)], check=True, capture_output=True)
         for file in (root / '.vite/build').glob('*.js'):
             if file.name.startswith(('bootstrap-', 'main-')):
