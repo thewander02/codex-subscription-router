@@ -34,8 +34,13 @@ This is a compatibility fork, not a claim of an upstream release certification.
   cross-account routing, failover, and secondary OAuth can be smoke-tested.
   Their backend routing and scoping unit tests pass.
 - No reset credits were consumed and no reset purchase was attempted.
-- macOS privacy consent for the independent app/helper remains user-controlled.
-  Signature validation does not by itself verify Appshots or Computer Use.
+- The final published installer completed; the app and standalone helper pass
+  `codesign --verify --deep --strict` with the same TeamIdentifier. The official
+  app also passes strict verification.
+- macOS privacy consent remains user-controlled. On the validation Mac, the
+  helper has a disabled row under Device Control and Data Access and is absent
+  from Screen & System Audio Recording. These grants are pending; signature
+  validation does not by itself verify Appshots or Computer Use.
 - The copy has no OpenAI push-notification entitlement; vendor push delivery is
   unavailable. Local runtime capabilities are preserved.
 - Profile editing targets Primary. Select Primary before editing; combined and
