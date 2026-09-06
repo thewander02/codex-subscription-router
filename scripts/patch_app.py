@@ -51,6 +51,9 @@ TESTED_SOURCE_BUILDS = {
         "6396",
     ): "d5a44ed9e2f1db5f81dbbe85408aed256f3203c5b16f00817bb9d7cd941343cf",
 }
+CURRENT_SOURCE_BUILD = ("26.901.51231", "8109")
+CURRENT_SOURCE_HASH = "64fc2f27d2dddfa968acfacbe5e4e0328071bdc406351ff4a7d18f0b4692c83d"
+TESTED_SOURCE_BUILDS[CURRENT_SOURCE_BUILD] = CURRENT_SOURCE_HASH
 EXPECTED_CUA_IDENTIFIER_REPLACEMENTS = 49
 EXPECTED_ASAR_CUA_IDENTIFIER_REPLACEMENTS = 17
 
@@ -125,12 +128,17 @@ def resolve_signing_identity(allow_adhoc: bool) -> str:
 def signing_team_identifier(identity: str) -> str | None:
     if identity == "-":
         return None
-    match = re.search(r"\(([A-Z0-9]{10})\)$", identity)
-    if match is None:
-        raise RuntimeError(
-            "the signing identity must end with its 10-character Apple team ID"
-        )
-    return match.group(1)
+    # Apple Development certificate names may end with a person identifier,
+    # not the certificate's TeamIdentifier. Ask codesign using disposable code.
+    with tempfile.TemporaryDirectory(prefix="codex-mux-signing-probe-") as directory:
+        probe = Path(directory) / "probe"
+        shutil.copyfile("/usr/bin/true", probe)
+        probe.chmod(0o700)
+        run(["codesign", "--force", "--sign", identity, "--timestamp=none", str(probe)])
+        _, team = signed_code_metadata(probe)
+    if team is None or re.fullmatch(r"[A-Z0-9]{10}", team) is None:
+        raise RuntimeError("the selected identity did not produce a valid Apple signing team")
+    return team
 
 
 def signed_code_metadata(path: Path) -> tuple[str | None, str | None]:
@@ -374,7 +382,7 @@ def patch_computer_use_identity(app: Path, team_identifier: str | None) -> None:
     executable.write_bytes(binary.replace(original_bundle_id, replacement_bundle_id))
 
 
-def patch_asar_computer_use_identity(extracted: Path) -> None:
+def patch_asar_computer_use_identity(extracted: Path, expected: int = EXPECTED_ASAR_CUA_IDENTIFIER_REPLACEMENTS) -> None:
     """Keep desktop launch, temp-file, and service references on the new CUA ID."""
     replacements = 0
     for candidate in extracted.rglob("*"):
@@ -384,10 +392,10 @@ def patch_asar_computer_use_identity(extracted: Path) -> None:
                 OPENAI_COMPUTER_USE_BUNDLE_IDENTIFIER,
                 COMPUTER_USE_BUNDLE_IDENTIFIER,
             )
-    if replacements != EXPECTED_ASAR_CUA_IDENTIFIER_REPLACEMENTS:
+    if replacements != expected:
         raise RuntimeError(
             "expected "
-            f"{EXPECTED_ASAR_CUA_IDENTIFIER_REPLACEMENTS} Computer Use references "
+            f"{expected} Computer Use references "
             f"in app.asar, found {replacements}"
         )
 
@@ -414,6 +422,7 @@ def sign_native_code_tree(root: Path, identity: str) -> None:
 
 
 TEAM_SCOPED_ENTITLEMENTS = (
+    "com.apple.developer.aps-environment",
     "com.apple.application-identifier",
     "com.apple.developer.team-identifier",
     "com.apple.security.application-groups",
@@ -1034,11 +1043,12 @@ def patch_desktop_profile(
     # The copied app must never replace itself with an unpatched official update.
     updater_pattern = re.compile(
         r"await [A-Za-z_$][\w$]*\.initialize\(\);"
-        r"(?=try\{let\{runMainAppStartup:)"
+        r"(?=(?:try\{)?let\{runMainAppStartup:)"
     )
     bootstrap, updater_replacements = updater_pattern.subn("", bootstrap, count=1)
     if updater_replacements != 1:
         raise RuntimeError("could not disable updates in the copied ChatGPT app")
+    bootstrap = re.sub(r"await [A-Za-z_$][\w$]*\.startUpdaterAfterStartupFailure\(\),", "", bootstrap)
     bootstrap_path.write_text(bootstrap, encoding="utf-8")
 
     main_files = list((extracted / ".vite" / "build").glob("main-*.js"))
@@ -1120,7 +1130,13 @@ def patch_info_plist(
         url_type["CFBundleURLSchemes"] = [
             "codex-subscription-router" if value == "codex" else value for value in schemes
         ]
-    digest = hashlib.sha256(asar_path.read_bytes()).hexdigest()
+    digest = subprocess.check_output(
+        ["node", "--input-type=module", "-e",
+         'import {getRawHeader} from "@electron/asar"; '
+         'import {createHash} from "node:crypto"; '
+         'console.log(createHash("sha256").update(getRawHeader(process.argv[1]).headerString).digest("hex"));',
+         str(asar_path)], cwd=PROJECT_ROOT, text=True,
+    ).strip()
     info["ElectronAsarIntegrity"] = {
         "Resources/app.asar": {"algorithm": "SHA256", "hash": digest}
     }
@@ -1210,9 +1226,13 @@ def patch_app(
         original_asar = resources / "app.asar"
         print("Patching desktop profile and renderer…")
         run([str(asar), "extract", str(original_asar), str(extracted)])
-        patch_asar_computer_use_identity(extracted)
+        patch_asar_computer_use_identity(extracted, 16 if (source_version, source_build) == CURRENT_SOURCE_BUILD else EXPECTED_ASAR_CUA_IDENTIFIER_REPLACEMENTS)
         patch_desktop_profile(extracted, installed_computer_use_app)
-        patch_renderer(extracted, token)
+        if (source_version, source_build) == CURRENT_SOURCE_BUILD:
+            from renderer_8109 import patch_renderer_8109
+            patch_renderer_8109(extracted, token)
+        else:
+            patch_renderer(extracted, token)
         sign_native_code_tree(extracted, signing_identity)
         repacked_asar = temporary_path / "app.asar"
         run(

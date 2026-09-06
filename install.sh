@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-readonly REPOSITORY_URL="https://github.com/b-nnett/codex-subscription-router.git"
-readonly DEFAULT_SOURCE_DIR="${HOME}/.codex-subscription-router/source"
+readonly REPOSITORY_URL="https://github.com/thewander02/codex-subscription-router.git"
+readonly DEFAULT_SOURCE_DIR="${HOME}/.codex-subscription-router/forks/thewander02/source"
 readonly SOURCE_DIR="${CODEX_SUBSCRIPTION_ROUTER_SOURCE_DIR:-${DEFAULT_SOURCE_DIR}}"
 readonly DESTINATION_APP="${HOME}/Applications/Codex Subscription Router.app"
 readonly DESTINATION_HELPER="${HOME}/Applications/Codex Subscription Router Computer Use.app"
@@ -134,7 +134,7 @@ main() {
     fi
 
     log "Building and signing Codex Subscription Router"
-    python3 scripts/patch_app.py "${patch_arguments[@]}"
+    python3 scripts/patch_app.py ${patch_arguments[@]+"${patch_arguments[@]}"}
 
     log "Launching Codex Subscription Router"
     open "${DESTINATION_APP}"

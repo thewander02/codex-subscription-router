@@ -1,5 +1,14 @@
 # Codex Subscription Router
 
+This fork ports the router to ChatGPT **26.901.51231 (8109)** on Apple silicon,
+fixes the macOS Bash 3.2 installer, and resolves signing teams from actual code
+signatures. The source checkout is separate from the upstream installer; router
+account state and the installed app paths remain the same.
+
+The copied app does not retain OpenAI's push-notification entitlement.
+See [the fork validation notes](docs/FORK-VALIDATION.md) for tested behavior and
+remaining manual checks.
+
 ![Multi-subscription account menu](screenshots/account-menu.png)
 
 Use multiple ChatGPT subscriptions from one independent macOS desktop app.
@@ -73,8 +82,8 @@ Codex Subscription Router currently targets:
 | Component | Supported value |
 | --- | --- |
 | Platform | macOS on Apple silicon |
-| Official ChatGPT version | `26.803.61601` |
-| Official bundle build | `6396` |
+| Official ChatGPT version | `26.901.51231` (also retains `26.803.61601`) |
+| Official bundle build | `8109` (also retains `6396`) |
 | Go | 1.26 or newer |
 | Node.js | 22.12 or newer |
 
@@ -100,11 +109,11 @@ Run one command. It downloads or updates the source, installs the locked build
 dependency, creates the independently signed app, and launches it:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/b-nnett/codex-subscription-router/main/install.sh | /bin/bash
+curl -fsSL https://raw.githubusercontent.com/thewander02/codex-subscription-router/main/install.sh | /bin/bash
 ```
 
 The installer keeps its source checkout in
-`~/.codex-subscription-router/source`. On an existing installation it uses the
+`~/.codex-subscription-router/forks/thewander02/source`. On an existing installation it uses the
 same account state, creates a recoverable backup, and requires signing-team
 continuity so macOS privacy grants remain valid. It stops with a clear message
 instead of making a partial installation when a prerequisite or upstream
@@ -116,12 +125,12 @@ compatibility check fails.
 
 ### Install via prompt
 
-> Install Codex Subscription Router from `https://github.com/b-nnett/codex-subscription-router` on this Mac using the repository's supported one-command installer, without modifying the official ChatGPT app or deleting any existing router state. Verify the resulting app and Computer Use helper signatures, launch the app, and ask me only if a prerequisite or macOS permission requires interaction.
+> Install Codex Subscription Router from `https://github.com/thewander02/codex-subscription-router` on this Mac using the repository's supported one-command installer, without modifying the official ChatGPT app or deleting any existing router state. Verify the resulting app and Computer Use helper signatures, launch the app, and ask me only if a prerequisite or macOS permission requires interaction.
 
 ### Install from a clone
 
 ```sh
-git clone https://github.com/b-nnett/codex-subscription-router.git
+git clone https://github.com/thewander02/codex-subscription-router.git
 cd codex-subscription-router
 npm ci --ignore-scripts
 python3 scripts/patch_app.py
