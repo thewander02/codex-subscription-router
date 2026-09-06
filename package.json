@@ -21,7 +21,8 @@
     "check:js": "node --check ui/account-menu.js && node --check ui/thread-subscription.js && node --check ui/ui-test-bridge.cjs",
     "check:python": "python3 -m py_compile scripts/patch_app.py scripts/renderer_8109.py scripts/check_release.py && python3 -m unittest discover -s tests -v",
     "check:shell": "bash -n install.sh",
-    "release:check": "python3 scripts/check_release.py"
+    "release:check": "python3 scripts/check_release.py",
+    "precheck:python": "npm ci --ignore-scripts --no-audit --no-fund"
   },
   "devDependencies": {
     "@electron/asar": "4.2.1"
